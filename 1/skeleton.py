@@ -6,6 +6,8 @@ import argparse
 import sys
 from gym_connect_four import ConnectFourEnv
 
+import json
+
 env: ConnectFourEnv = gym.make("ConnectFour-v0")
 
 # SERVER_ADRESS = "http://localhost:8000/"
@@ -149,7 +151,7 @@ def play_game(vs_server=False):
                 # Execute your move
                 avmoves = env.available_moves()
                 if stmove not in avmoves:
-                    print("You tied to make an illegal move! You have lost the game.")
+                    print("You tried to make an illegal move! You have lost the game.")
                     break
                 state, result, done, _ = env.step(stmove)
 
@@ -175,7 +177,7 @@ def play_game(vs_server=False):
             elif result == -10:
                 print("You made an illegal move and have lost!")
             else:
-                print("Unexpected result result={}".format(result))
+                print(f"Unexpected result result={result}")
             if not vs_server:
                 print("Final state (1 are student discs, -1 are servers, 0 is empty): ")
         else:
@@ -211,7 +213,7 @@ def main():
 
     if args.stats:
         stats = check_stats()
-        print(stats)
+        print(json.dumps(stats, indent=4))
 
     # TODO: Run program with "--online" when you are ready to play against the server
     # the results of your games there will be logged
