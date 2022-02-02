@@ -1,3 +1,4 @@
+from logging import NullHandler
 import gym
 import random
 import requests
@@ -5,6 +6,7 @@ import numpy as np
 import argparse
 import sys
 from gym_connect_four import ConnectFourEnv
+import copy  # use this
 
 import json
 
@@ -14,6 +16,8 @@ env: ConnectFourEnv = gym.make("ConnectFour-v0")
 SERVER_ADRESS = "https://vilde.cs.lth.se/edap01-4inarow/"
 API_KEY = "nyckel"
 STIL_ID = (["jo4383ba-s"],)  # TODO: fill this list with your stil-id's
+
+INF = 10 ** 20
 
 
 def call_server(move):
@@ -78,6 +82,148 @@ def opponents_move(env):
     return state, reward, done
 
 
+def is_winning(board, x, y):
+    if board[y][x] == 0:
+        return False
+
+    # row
+    for i in range(0, 4):  # 0 to 3
+        if x - i >= 0 and x - i + 3 < len(board[y]):
+            if 4 * board[y][x] == sum(board[y][x - i : x - i + 4]):
+                return True
+
+    # down
+    if len(board) - y >= 4:
+        if 4 * board[y][x] == sum([row[x] for row in board[y : y + 4]]):
+            return True
+
+    # diagonal
+    for i in range(0, 4):
+        value = 0
+        for j in range(0, 4):
+            if (x - i >= 0 and x - i + 3 < len(board[y])) and (
+                y - i >= 0 and y - i + 3 < len(board)
+            ):
+                value += board[y - i + j][x - i + j]
+        if 4 * board[y][x] == value:
+            return True
+    return False
+
+
+def place_marker(board, y, p):
+    if board[y][0] != 0:
+        return False
+    else:
+        for i in range(len(board[y]) - 1, 0, -1):
+            if board[y][i] == 0:
+                board[y][i] = p
+                return True
+
+
+def evaluate_list(marker_list, length=4):
+    ones = marker_list.count(1)
+    minus = marker_list.count(-1)
+    zeros = length - ones - minus
+
+    score = 0
+    if ones == 4:
+        score += 100000
+    elif ones == 3 and zeros == 1:
+        score += 5000
+    elif ones == 2 and zeros == 2:
+        score += 500
+
+    elif minus == 2 and zeros == 2:
+        score -= 600
+    elif minus == 3 and zeros == 1:
+        score -= 5100
+    elif minus == 4:
+        score -= 100000 - 1
+
+    return score
+
+
+def evaluate_board(board, length=4):  # maybe not optimal max score
+    score = 0
+    l = [0] * 4
+
+    # row
+    for i in range(len(board)):
+        for j in range(len(board[i]) - length + 1):
+            for n in range(length):
+                l[n] = board[i][j + n]
+            score += evaluate_list(l)
+
+    for i in range(len(board) - length + 1):
+        # down
+        for j in range(len(board[i])):
+            for n in range(0, length):
+                l[n] = board[i + n][j]
+            score += evaluate_list(l)
+
+        # diag
+        for j in range(len(board[i]) - length + 1):
+            for n in range(length):
+                l[n] = board[i + n][j + n]
+            score += evaluate_list(l)
+
+        for j in range(length - 1, len(board[i])):
+            for n in range(length):
+                l[n] = board[i - n][j - n]
+            score += evaluate_list(l)
+    return score
+
+
+def alpha_beta(curr_env, depth, alpha, beta, maximizing_player):
+    moves = curr_env.available_moves()
+
+    if depth == 0 or len(moves) == 0:  # or terminal node:
+        return evaluate_board(env.board)
+
+    if maximizing_player:
+        value = -INF
+        for m in moves:
+            new_env = copy.deepcopy(curr_env)
+            new_env.step(m)
+
+            # value := max(value, alphabeta(child, depth − 1, α, β, FALSE))
+            prev_best = alpha_beta(new_env, depth - 1, alpha, beta, False)
+            if type(prev_best) == int:
+                prev_best = (m, prev_best)
+
+            if value > prev_best[1]:
+                best_move = m
+            else:
+                best_move, value = prev_best
+
+            if value >= beta:
+                break
+
+            alpha = max(alpha, value)
+        return (best_move, value)
+    else:
+        value = INF
+        for m in moves:
+            new_env = copy.deepcopy(curr_env)
+            new_env.step(m)
+
+            # value := min(value, alphabeta(child, depth − 1, α, β, TRUE))
+            prev_best = alpha_beta(new_env, depth - 1, alpha, beta, True)
+            if type(prev_best) == int:
+                prev_best = (m, prev_best)
+
+            if value < prev_best[1]:
+                best_move = m
+            else:
+                best_move, value = prev_best
+
+            if value <= alpha:
+                break
+
+            beta = min(beta, value)
+        return (best_move, value)
+
+
 def student_move():
     """
     TODO: Implement your min-max alpha-beta pruning algorithm here.
@@ -85,7 +231,11 @@ def student_move():
     (and change where it is called).
     The function should return a move from 0-6
     """
-    return random.choice([0, 1, 2, 3, 4, 5, 6])
+
+    depth = 5
+    alpha_beta(env, depth, -INF, INF, True)
+    moves = env.available_moves()
+    return random.choice(list(moves))
 
 
 def play_game(vs_server=False):
@@ -120,16 +270,13 @@ def play_game(vs_server=False):
         # determine first player
         student_gets_move = random.choice([True, False])
         if student_gets_move:
-            print("You start!")
-            print()
+            print("You start!\n")
         else:
-            print("Bot starts!")
-            print()
+            print("Bot starts!\n")
 
     # Print current gamestate
     print("Current state (1 are student discs, -1 are servers, 0 is empty): ")
-    print(state)
-    print()
+    print(state, "\n")
 
     done = False
     while not done:
@@ -158,6 +305,7 @@ def play_game(vs_server=False):
             student_gets_move = True  # student only skips move first turn if bot starts
 
             # print or render state here if you like
+            # env.render(mode="console")
 
             # select and make a move for the opponent, returned reward from students view
             if not done:
