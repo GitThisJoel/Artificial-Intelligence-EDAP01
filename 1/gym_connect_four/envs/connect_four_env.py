@@ -8,12 +8,14 @@ from typing import Tuple, NamedTuple, Hashable, Optional
 import gym
 import numpy as np
 import os
-os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
+
+os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "hide"
 import pygame
 from gym import error
 from gym import spaces
 
 from gym_connect_four.envs.render import render_board
+
 
 @unique
 class ResultType(Enum):
@@ -57,7 +59,7 @@ class ConnectFourEnv(gym.Env):
         An attempt is made to place a piece in an invalid location
     """
 
-    metadata = {'render.modes': ['human']}
+    metadata = {"render.modes": ["human"]}
 
     LOSS_REWARD = -1
     DEF_REWARD = 0
@@ -74,8 +76,10 @@ class ConnectFourEnv(gym.Env):
             elif self.res_type is ResultType.DRAW:
                 return ConnectFourEnv.DRAW_REWARD
             else:
-                return {ResultType.WIN1.value: ConnectFourEnv.WIN_REWARD, ResultType.WIN2.value: ConnectFourEnv.LOSS_REWARD}[
-                    self.res_type.value * player]
+                return {
+                    ResultType.WIN1.value: ConnectFourEnv.WIN_REWARD,
+                    ResultType.WIN2.value: ConnectFourEnv.LOSS_REWARD,
+                }[self.res_type.value * player]
 
         def is_done(self):
             return self.res_type != ResultType.NONE
@@ -85,10 +89,9 @@ class ConnectFourEnv(gym.Env):
 
         self.board_shape = board_shape
 
-        self.observation_space = spaces.Box(low=-1,
-                                            high=1,
-                                            shape=board_shape,
-                                            dtype=int)
+        self.observation_space = spaces.Box(
+            low=-1, high=1, shape=board_shape, dtype=int
+        )
         self.action_space = spaces.Discrete(board_shape[1])
 
         self.__current_player = 1
@@ -114,7 +117,7 @@ class ConnectFourEnv(gym.Env):
 
         if not self.is_valid_action(action):
             raise Exception(
-                'Unable to determine a valid move! Maybe invoke at the wrong time?'
+                "Unable to determine a valid move! Maybe invoke at the wrong time?"
             )
 
         # Check and perform action
@@ -129,7 +132,9 @@ class ConnectFourEnv(gym.Env):
         else:
             # Check win condition
             if self.is_win_state():
-                result = ResultType.WIN1 if self.__current_player == 1 else ResultType.WIN2
+                result = (
+                    ResultType.WIN1 if self.__current_player == 1 else ResultType.WIN2
+                )
         return self.StepResult(result)
 
     @property
@@ -145,44 +150,42 @@ class ConnectFourEnv(gym.Env):
         self.__rendered_board = self._update_board_render()
         return self.board
 
-    def render(self, mode: str = 'console', close: bool = False) -> None:
-        if mode == 'console':
+    def render(self, mode: str = "console", close: bool = False) -> None:
+        if mode == "console":
             replacements = {
-                self.__player_color: 'A',
-                0: ' ',
-                -1 * self.__player_color: 'B'
+                self.__player_color: "A",
+                0: " ",
+                -1 * self.__player_color: "B",
             }
 
             def render_line(line):
-                return "|" + "|".join(
-                    ["{:>2} ".format(replacements[x]) for x in line]) + "|"
+                return (
+                    "|"
+                    + "|".join(["{:>2} ".format(replacements[x]) for x in line])
+                    + "|"
+                )
 
-            hline = '|---+---+---+---+---+---+---|'
+            hline = "|---+---+---+---+---+---+---|"
             print(hline)
-            for line in np.apply_along_axis(render_line,
-                                            axis=1,
-                                            arr=self.__board):
+            for line in np.apply_along_axis(render_line, axis=1, arr=self.__board):
                 print(line)
             print(hline)
 
-        elif mode == 'human':
-            if self.__screen is None:
-                pygame.init()
-                self.__screen = pygame.display.set_mode(
-                    (round(self.__window_width), round(self.__window_height)))
-
-            if close:
-                pygame.quit()
-
-            self.__rendered_board = self._update_board_render()
-            frame = self.__rendered_board
-            surface = pygame.surfarray.make_surface(frame)
-            surface = pygame.transform.rotate(surface, 90)
-            self.__screen.blit(surface, (0, 0))
-
-            pygame.display.update()
-        else:
-            raise error.UnsupportedMode()
+        # elif mode == 'human':
+        #     if self.__screen is None:
+        #         pygame.init()
+        #         self.__screen = pygame.display.set_mode(
+        #             (round(self.__window_width), round(self.__window_height)))
+        #     if close:
+        #         pygame.quit()
+        #     self.__rendered_board = self._update_board_render()
+        #     frame = self.__rendered_board
+        #     surface = pygame.surfarray.make_surface(frame)
+        #     surface = pygame.transform.rotate(surface, 90)
+        #     self.__screen.blit(surface, (0, 0))
+        #     pygame.display.update()
+        # else:
+        #     raise error.UnsupportedMode()
 
     def close(self) -> None:
         pygame.quit()
@@ -191,15 +194,17 @@ class ConnectFourEnv(gym.Env):
         return self.__board[0][action] == 0
 
     def _update_board_render(self) -> np.ndarray:
-        return render_board(self.__board,
-                            image_width=self.__window_width,
-                            image_height=self.__window_height)
+        return render_board(
+            self.__board,
+            image_width=self.__window_width,
+            image_height=self.__window_height,
+        )
 
     def is_win_state(self) -> bool:
         # Test rows
         for i in range(self.board_shape[0]):
             for j in range(self.board_shape[1] - 3):
-                value = sum(self.__board[i][j:j + 4])
+                value = sum(self.__board[i][j : j + 4])
                 if abs(value) == 4:
                     return True
 
@@ -207,7 +212,7 @@ class ConnectFourEnv(gym.Env):
         reversed_board = [list(i) for i in zip(*self.__board)]
         for i in range(self.board_shape[1]):
             for j in range(self.board_shape[0] - 3):
-                value = sum(reversed_board[i][j:j + 4])
+                value = sum(reversed_board[i][j : j + 4])
                 if abs(value) == 4:
                     return True
 
@@ -234,4 +239,5 @@ class ConnectFourEnv(gym.Env):
 
     def available_moves(self) -> frozenset:
         return frozenset(
-            (i for i in range(self.board_shape[1]) if self.is_valid_action(i)))
+            (i for i in range(self.board_shape[1]) if self.is_valid_action(i))
+        )
