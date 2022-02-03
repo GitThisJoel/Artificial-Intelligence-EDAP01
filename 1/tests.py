@@ -1,3 +1,21 @@
+from logging import NullHandler
+import gym
+import random
+import requests
+import numpy as np
+import argparse
+import sys
+from gym_connect_four import ConnectFourEnv
+import copy  # use this
+
+import json
+import random
+
+from skeleton import evaluate_board, alpha_beta, win_next_turn
+
+env: ConnectFourEnv = gym.make("ConnectFour-v0")
+
+
 INF = 10 ** 20
 
 
@@ -73,70 +91,93 @@ def test_is_winning():
     return
 
 
-def evaluate_list(marker_list, length=4):
-    ones = marker_list.count(1)
-    minus = marker_list.count(-1)
-    zeros = length - ones - minus
-
-    score = 0
-    if ones == 4:
-        score += 100000
-    elif ones == 3 and zeros == 1:
-        score += 5000
-    elif ones == 2 and zeros == 2:
-        score += 500
-
-    elif minus == 2 and zeros == 2:
-        score -= 600
-    elif minus == 3 and zeros == 1:
-        score -= 5100
-    elif minus == 4:
-        score -= 100000 - 1
-
-    return score
-
-
-def evaluate_board(board, length=4):  # maybe not optimal max score
-    score = 0
-    l = [0] * 4
-
-    # row
-    for i in range(len(board)):
-        for j in range(len(board[i]) - length + 1):
-            score += evaluate_list(board[i][j : j + length])
-
-    for i in range(len(board) - length + 1):
-        # down
-        for j in range(len(board[i])):
-            for n in range(0, length):
-                l[n] = board[i + n][j]
-            score += evaluate_list(l)
-
-        # diag
-        for j in range(len(board[i]) - length + 1):
-            for n in range(length):
-                l[n] = board[i + n][j + n]
-            score += evaluate_list(l)
-
-        for j in range(length - 1, len(board[i])):
-            for n in range(length):
-                l[n] = board[i - n][j - n]
-            score += evaluate_list(l)
-    return score
-
-
 def test_eval():
     b1 = [
-        [0, -1, 0, 0, 0],
-        [0, 1, 0, 0, 0],
-        [0, -1, 1, 0, 0],
-        [0, 1, -1, 1, 0],
-        [0, -1, 1, -1, 0],
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 1, 0, 0, 0, 0],
+        [0, 1, 0, 0, 0, 0, 0],
+        [1, 0, 0, 0, 0, 0, 0],
     ]
-    print(evaluate_board(b1))
+
+    b2 = [
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 1, 0, 0],
+        [0, 0, 0, 0, 0, 1, 0],
+        [0, 0, 0, 0, 0, 0, 1],
+    ]
+
+    b3 = [
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0],
+        [1, 0, 1, 1, 0, 0, 0],
+    ]
+
+    b4 = [
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, -1, 0, 0, 0],
+        [-1, 0, -1, -1, 0, 1, -1],
+        [-1, 1, -1, 1, -1, 1, 1],
+        [1, 1, 1, -1, 1, 1, -1],
+    ]
+
+    b5 = [
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 1, -1, 0, 0],
+        [0, 0, 0, 1, 1, 0, 0],
+        [0, 0, 0, -1, -1, 0, -1],
+    ]
+
+    print("b1:", evaluate_board(b1, print_lists=True))
+    print("b2:", evaluate_board(b2, print_lists=True))
+    print("b3:", evaluate_board(b3, print_lists=True))
+    print("b4:", evaluate_board(b4, print_lists=False))
+    print("b5:", evaluate_board(b5, print_lists=False))
+    return
+
+
+def test_best_move():
+    b1 = [
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 1, -1, 0, 0],
+        [0, 0, 0, 1, 1, 0, 0],
+        [0, 0, 0, -1, -1, 0, -1],
+    ]
+
+    b1 = np.asarray(b1)
+    env.reset(board=b1)
+
+    ret = alpha_beta(env, 5, -INF, INF, True)
+    print("want to place at 5, best is:", ret)
+
+
+def test_win_next_turn():
+    b1 = [
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 1, -1, 0, 0],
+        [0, 0, 0, 1, 1, 0, 0],
+        [0, 0, 0, -1, -1, 0, -1],
+    ]
+    print(" 1:", win_next_turn(b1, 1))
+    print("-1:", win_next_turn(b1, -1))
     return
 
 
 if __name__ == "__main__":
     # test_is_winning()
-    test_eval()
+    # test_eval()
+    test_best_move()
+    test_win_next_turn()
