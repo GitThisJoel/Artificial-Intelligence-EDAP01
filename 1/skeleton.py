@@ -15,7 +15,7 @@ env: ConnectFourEnv = gym.make("ConnectFour-v0")
 # SERVER_ADRESS = "http://localhost:8000/"
 SERVER_ADRESS = "https://vilde.cs.lth.se/edap01-4inarow/"
 API_KEY = "nyckel"
-STIL_ID = (["jo4383ba-s"],)  # TODO: fill this list with your stil-id's
+STIL_ID = ["jo4383ba-s"]
 
 INF = 10 ** 20
 
@@ -120,57 +120,60 @@ def place_marker(board, y, p):
                 return True
 
 
-def evaluate_list(marker_list, length=4):
+def evaluate_list(marker_list, length=4, print_lists=False):
     ones = marker_list.count(1)
     minus = marker_list.count(-1)
     zeros = length - ones - minus
 
+    if print_lists and zeros != length and (ones > 1 or minus > 1):
+        print(marker_list)
+
     score = 0
     if ones == 4:
-        score += 100000
+        score += 500001
     elif ones == 3 and zeros == 1:
         score += 5000
     elif ones == 2 and zeros == 2:
         score += 500
 
     elif minus == 2 and zeros == 2:
-        score -= 600
+        score -= 550
     elif minus == 3 and zeros == 1:
-        score -= 5100
+        score -= 5500
     elif minus == 4:
-        score -= 100000 - 1
+        score -= 500001
 
     return score
 
 
-def evaluate_board(board, length=4):  # maybe not optimal max score
+def evaluate_board(board, length=4, print_lists=False):
     score = 0
-    l = [0] * 4
+    l = [0] * length
 
     # row
     for i in range(len(board)):
         for j in range(len(board[i]) - length + 1):
             for n in range(length):
                 l[n] = board[i][j + n]
-            score += evaluate_list(l)
+            score += evaluate_list(l, length=length, print_lists=print_lists)
 
     for i in range(len(board) - length + 1):
         # down
         for j in range(len(board[i])):
             for n in range(0, length):
                 l[n] = board[i + n][j]
-            score += evaluate_list(l)
+            score += evaluate_list(l, length=length, print_lists=print_lists)
 
         # diag
         for j in range(len(board[i]) - length + 1):
             for n in range(length):
                 l[n] = board[i + n][j + n]
-            score += evaluate_list(l)
+            score += evaluate_list(l, length=length, print_lists=print_lists)
 
         for j in range(length - 1, len(board[i])):
             for n in range(length):
-                l[n] = board[i - n][j - n]
-            score += evaluate_list(l)
+                l[n] = board[i + n][j - n]
+            score += evaluate_list(l, length=length, print_lists=print_lists)
     return score
 
 
@@ -178,7 +181,7 @@ def alpha_beta(curr_env, depth, alpha, beta, maximizing_player):
     moves = curr_env.available_moves()
 
     if depth == 0 or len(moves) == 0:  # or terminal node:
-        return evaluate_board(env.board)
+        return evaluate_board(curr_env.board)
 
     if maximizing_player:
         value = -INF
@@ -191,7 +194,7 @@ def alpha_beta(curr_env, depth, alpha, beta, maximizing_player):
             if type(prev_best) == int:
                 prev_best = (m, prev_best)
 
-            if value > prev_best[1]:
+            if value > prev_best[1]:  # value is larger, current state is better
                 best_move = m
             else:
                 best_move, value = prev_best
@@ -232,10 +235,14 @@ def student_move():
     The function should return a move from 0-6
     """
 
-    depth = 5
-    alpha_beta(env, depth, -INF, INF, True)
     moves = env.available_moves()
-    return random.choice(list(moves))
+
+    depth = 7
+    best_move, _ = alpha_beta(env, depth, -INF, INF, True)
+
+    assert best_move in moves
+
+    return best_move
 
 
 def play_game(vs_server=False):
@@ -262,8 +269,10 @@ def play_game(vs_server=False):
 
         # This should tell you if you or the bot starts
         print(res.json()["msg"])
+        # print(res.json())
         botmove = res.json()["botmove"]
         state = np.array(res.json()["state"])
+        env.reset(board=state)
     else:
         # reset game to starting state
         env.reset(board=None)
@@ -293,6 +302,7 @@ def play_game(vs_server=False):
             result = res.json()["result"]
             botmove = res.json()["botmove"]
             state = np.array(res.json()["state"])
+            env.reset(board=state)
         else:
             if student_gets_move:
                 # Execute your move
