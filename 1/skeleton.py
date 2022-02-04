@@ -9,15 +9,18 @@ from gym_connect_four import ConnectFourEnv
 import copy  # use this
 
 import json
+import random
 
 env: ConnectFourEnv = gym.make("ConnectFour-v0")
 
 # SERVER_ADRESS = "http://localhost:8000/"
+SERVER_ADRESS = "http://lavender.blossom.dsek.se:3030/rooms/showdown/"
 SERVER_ADRESS = "https://vilde.cs.lth.se/edap01-4inarow/"
 API_KEY = "nyckel"
 STIL_ID = ["jo4383ba-s"]
 
 INF = 10 ** 20
+TOTAL_DEPTH = 4
 
 
 def call_server(move):
@@ -72,7 +75,9 @@ def opponents_move(env):
     # TODO: Optional? change this to select actions with your policy too
     # that way you get way more interesting games, and you can see if starting
     # is enough to guarrantee a win
+
     action = random.choice(list(avmoves))
+    # action = int(input("play: ")) - 1
 
     state, reward, done, _ = env.step(action)
     if done:
@@ -80,44 +85,6 @@ def opponents_move(env):
             reward = -1
     env.change_player()  # change back to student before returning
     return state, reward, done
-
-
-def is_winning(board, x, y):
-    if board[y][x] == 0:
-        return False
-
-    # row
-    for i in range(0, 4):  # 0 to 3
-        if x - i >= 0 and x - i + 3 < len(board[y]):
-            if 4 * board[y][x] == sum(board[y][x - i : x - i + 4]):
-                return True
-
-    # down
-    if len(board) - y >= 4:
-        if 4 * board[y][x] == sum([row[x] for row in board[y : y + 4]]):
-            return True
-
-    # diagonal
-    for i in range(0, 4):
-        value = 0
-        for j in range(0, 4):
-            if (x - i >= 0 and x - i + 3 < len(board[y])) and (
-                y - i >= 0 and y - i + 3 < len(board)
-            ):
-                value += board[y - i + j][x - i + j]
-        if 4 * board[y][x] == value:
-            return True
-    return False
-
-
-def place_marker(board, y, p):
-    if board[y][0] != 0:
-        return False
-    else:
-        for i in range(len(board[y]) - 1, 0, -1):
-            if board[y][i] == 0:
-                board[y][i] = p
-                return True
 
 
 def evaluate_list(marker_list, length=4, print_lists=False):
@@ -130,101 +97,96 @@ def evaluate_list(marker_list, length=4, print_lists=False):
 
     score = 0
     if ones == 4:
-        score += 500001
+        score = 10000
     elif ones == 3 and zeros == 1:
-        score += 5000
+        score = 10
     elif ones == 2 and zeros == 2:
-        score += 500
+        score = 5
 
     elif minus == 2 and zeros == 2:
-        score -= 550
+        score = -6
     elif minus == 3 and zeros == 1:
-        score -= 5500
+        score = -11
     elif minus == 4:
-        score -= 500001
+        score = -10000 + 1
 
     return score
 
 
-def evaluate_board(board, length=4, print_lists=False):
+def evaluate_board(board):
     score = 0
-    l = [0] * length
+    for i in range(6):  # rows
+        row = board[i]
+        for j in range(4):
+            squares = list(row[j : j + 4])
+            score += evaluate_list(squares)
 
-    # row
-    for i in range(len(board)):
-        for j in range(len(board[i]) - length + 1):
-            for n in range(length):
-                l[n] = board[i][j + n]
-            score += evaluate_list(l, length=length, print_lists=print_lists)
+    for i in range(7):  # cols
+        col = board[:, i]
+        for j in range(3):
+            squares = list(col[j : j + 4])
+            score += evaluate_list(squares)
 
-    for i in range(len(board) - length + 1):
-        # down
-        for j in range(len(board[i])):
-            for n in range(0, length):
-                l[n] = board[i + n][j]
-            score += evaluate_list(l, length=length, print_lists=print_lists)
+    for i in range(3):  # diagonal
+        for j in range(4):
+            squares = [board[i + k][j + k] for k in range(4)]
+            score += evaluate_list(squares)
 
-        # diag
-        for j in range(len(board[i]) - length + 1):
-            for n in range(length):
-                l[n] = board[i + n][j + n]
-            score += evaluate_list(l, length=length, print_lists=print_lists)
+    reverse_board = np.fliplr(board)
+    for i in range(3):  # other diagonals
+        for j in range(4):
+            squares = [reverse_board[i + k][j + k] for k in range(4)]
+            score += evaluate_list(squares)
 
-        for j in range(length - 1, len(board[i])):
-            for n in range(length):
-                l[n] = board[i + n][j - n]
-            score += evaluate_list(l, length=length, print_lists=print_lists)
     return score
 
 
 def alpha_beta(curr_env, depth, alpha, beta, maximizing_player):
     moves = curr_env.available_moves()
 
-    if depth == 0 or len(moves) == 0:  # or terminal node:
+    if depth == 0 or len(moves) == 0 or curr_env.is_win_state():  # or terminal node:
         return evaluate_board(curr_env.board)
+
+    moves = list(moves)
+    random.shuffle(moves)
 
     if maximizing_player:
         value = -INF
         for m in moves:
             new_env = copy.deepcopy(curr_env)
+            new_env.change_player()
             new_env.step(m)
 
             # value := max(value, alphabeta(child, depth − 1, α, β, FALSE))
-            prev_best = alpha_beta(new_env, depth - 1, alpha, beta, False)
-            if type(prev_best) == int:
-                prev_best = (m, prev_best)
-
-            if value > prev_best[1]:  # value is larger, current state is better
-                best_move = m
-            else:
-                best_move, value = prev_best
+            value = max(value, alpha_beta(new_env, depth - 1, alpha, beta, False))
 
             if value >= beta:
                 break
 
             alpha = max(alpha, value)
-        return (best_move, value)
+
+            if depth > 1 and False:
+                print(f"at {depth=}, {m=} and {value=}")
+
+        return value  # - 2 * (TOTAL_DEPTH - depth))
+
     else:
         value = INF
         for m in moves:
             new_env = copy.deepcopy(curr_env)
+            new_env.change_player()
             new_env.step(m)
 
             # value := min(value, alphabeta(child, depth − 1, α, β, TRUE))
-            prev_best = alpha_beta(new_env, depth - 1, alpha, beta, True)
-            if type(prev_best) == int:
-                prev_best = (m, prev_best)
-
-            if value < prev_best[1]:
-                best_move = m
-            else:
-                best_move, value = prev_best
+            value = min(value, alpha_beta(new_env, depth - 1, alpha, beta, True))
 
             if value <= alpha:
                 break
 
             beta = min(beta, value)
-        return (best_move, value)
+            if depth > 1 and False:
+                print(f"at {depth=}, {m=} and {value=}")
+        return value  # value + 2 * (TOTAL_DEPTH - depth)
 
 
 def student_move():
@@ -236,11 +198,22 @@ def student_move():
     """
 
     moves = env.available_moves()
+    hi = -INF
+    move_scores = [None] * 7
+    for m in moves:
+        new_env = copy.deepcopy(env)
+        new_env.step(m)
 
-    depth = 7
-    best_move, _ = alpha_beta(env, depth, -INF, INF, True)
+        value = alpha_beta(new_env, TOTAL_DEPTH, -INF, INF, False)
 
-    assert best_move in moves
+        move_scores[m] = value
+
+        if value > hi:
+            best_move = m
+            hi = value
+
+    print(f"our {best_move=}, with {hi=}")
+    print(f"{move_scores=}")
 
     return best_move
 
