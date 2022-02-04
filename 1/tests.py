@@ -139,9 +139,9 @@ def test_eval():
 
     print("b1:", evaluate_board(b1, print_lists=True))
     print("b2:", evaluate_board(b2, print_lists=True))
-    print("b3:", evaluate_board(b3, print_lists=True))
-    print("b4:", evaluate_board(b4, print_lists=False))
-    print("b5:", evaluate_board(b5, print_lists=False))
+    # print("b3:", evaluate_board(b3, print_lists=True))
+    # print("b4:", evaluate_board(b4, print_lists=False))
+    # print("b5:", evaluate_board(b5, print_lists=False))
     return
 
 
@@ -178,6 +178,6 @@ def test_win_next_turn():
 
 if __name__ == "__main__":
     # test_is_winning()
-    # test_eval()
-    test_best_move()
-    test_win_next_turn()
+    test_eval()
+    # test_best_move()
+    # test_win_next_turn()
