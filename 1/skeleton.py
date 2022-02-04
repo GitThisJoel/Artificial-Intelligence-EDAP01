@@ -95,6 +95,7 @@ def evaluate_list(marker_list, length=4, print_lists=False):
     if print_lists and zeros != length and (ones > 1 or minus > 1):
         print(marker_list)
 
+    # TODO: make this general for any length
     score = 0
     if ones == 4:
         score = 10000
@@ -113,29 +114,33 @@ def evaluate_list(marker_list, length=4, print_lists=False):
     return score
 
 
-def evaluate_board(board):
+def evaluate_board(board, length=4):
     score = 0
-    for i in range(6):  # rows
+
+    # rows
+    for i in range(len(board)):
         row = board[i]
-        for j in range(4):
-            squares = list(row[j : j + 4])
+        for j in range(len(board[i]) - length + 1):
+            squares = list(row[j : j + length])
             score += evaluate_list(squares)
 
-    for i in range(7):  # cols
+    for i in range(len(board[0])):  # cols
         col = board[:, i]
-        for j in range(3):
-            squares = list(col[j : j + 4])
+        for j in range(len(board) - length + 1):
+            squares = list(col[j : j + length])
             score += evaluate_list(squares)
 
-    for i in range(3):  # diagonal
-        for j in range(4):
-            squares = [board[i + k][j + k] for k in range(4)]
+    # diagonal
+    for i in range(len(board) - length + 1):
+        for j in range(len(board[i]) - length + 1):
+            squares = [board[i + k][j + k] for k in range(length)]
             score += evaluate_list(squares)
 
+    # other diagonal
     reverse_board = np.fliplr(board)
-    for i in range(3):  # other diagonals
-        for j in range(4):
-            squares = [reverse_board[i + k][j + k] for k in range(4)]
+    for i in range(len(board) - length + 1):
+        for j in range(len(board[i]) - length + 1):
+            squares = [reverse_board[i + k][j + k] for k in range(length)]
             score += evaluate_list(squares)
 
     return score
