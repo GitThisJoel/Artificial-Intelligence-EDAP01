@@ -9,18 +9,16 @@ from gym_connect_four import ConnectFourEnv
 import copy  # use this
 
 import json
-import random
 
 env: ConnectFourEnv = gym.make("ConnectFour-v0")
 
 # SERVER_ADRESS = "http://localhost:8000/"
-SERVER_ADRESS = "http://lavender.blossom.dsek.se:3030/rooms/showdown/"
 SERVER_ADRESS = "https://vilde.cs.lth.se/edap01-4inarow/"
 API_KEY = "nyckel"
 STIL_ID = ["jo4383ba-s"]
 
 INF = 10 ** 20
-TOTAL_DEPTH = 4
+MAX_DEPTH = 4
 
 
 def call_server(move):
@@ -77,7 +75,7 @@ def opponents_move(env):
     # is enough to guarrantee a win
 
     action = random.choice(list(avmoves))
-    # action = int(input("play: ")) - 1
+    # action = int(input("play: "))  # - 1
 
     state, reward, done, _ = env.step(action)
     if done:
@@ -169,11 +167,7 @@ def alpha_beta(curr_env, depth, alpha, beta, maximizing_player):
                 break
 
             alpha = max(alpha, value)
-
-            if depth > 1 and False:
-                print(f"at {depth=}, {m=} and {value=}")
-
-        return value  # - 2 * (TOTAL_DEPTH - depth))
+        return value
 
     else:
         value = INF
@@ -189,9 +183,7 @@ def alpha_beta(curr_env, depth, alpha, beta, maximizing_player):
                 break
 
             beta = min(beta, value)
-            if depth > 1 and False:
-                print(f"at {depth=}, {m=} and {value=}")
-        return value  # value + 2 * (TOTAL_DEPTH - depth)
+        return value
 
 
 def student_move():
@@ -209,7 +201,7 @@ def student_move():
         new_env = copy.deepcopy(env)
         new_env.step(m)
 
-        value = alpha_beta(new_env, TOTAL_DEPTH, -INF, INF, False)
+        value = alpha_beta(new_env, MAX_DEPTH, -INF, INF, False)
 
         move_scores[m] = value
 
@@ -256,6 +248,7 @@ def play_game(vs_server=False):
         env.reset(board=None)
         # determine first player
         student_gets_move = random.choice([True, False])
+        # student_gets_move = False
         if student_gets_move:
             print("You start!\n")
         else:
