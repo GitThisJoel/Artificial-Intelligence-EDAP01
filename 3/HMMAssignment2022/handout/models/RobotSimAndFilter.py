@@ -5,7 +5,7 @@ from models import TransitionModel, ObservationModel, StateModel
 
 # Add your Robot Simulator here
 
-# REMEBER: X IS NOT COLS ITS OVER ROWS (for some reason?)
+# REMEBER: X IS NOT COLS ITS ROWS (for some reason?)
 class RobotSim:
     def __init__(self, sm: StateModel, tm: TransitionModel):  # true_state: int
         self.__sm = sm
@@ -130,4 +130,5 @@ class HMMFilter:
                 max_proba = fp1[i]
                 best_pos = self.__sm.state_to_position(i)
 
+        fp1 /= sum(fp1)  # np.linalg.norm(fp1)
         return fp1, best_pos
